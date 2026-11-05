@@ -144,7 +144,9 @@ export function buyText(r: BuyLink): string[] {
     );
   out.push(`  ${pad("Total", 52)}  ${money(r.totalCents)}`, "");
   if (r.note) out.push(r.note);
-  out.push("Nothing is charged until you pay in the checkout on that page.");
+  // Said once: the store's note usually says it already; when it doesn't, the CLI does.
+  if (!/nothing is charged/i.test(r.note ?? ""))
+    out.push("Nothing is charged until you pay in the checkout on that page.");
   return out;
 }
 

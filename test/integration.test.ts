@@ -146,7 +146,8 @@ describe("login → library → download → buy", () => {
       `${store.url}/buy?items=fern-pack:standard,techo-weekly-2027:personal&ref=cli`,
     );
     expect(r.out).toContain("(you already own this)");
-    expect(r.out).toContain("Nothing is charged until you pay in the checkout on that page.");
+    // Said once: the store's own note, or the CLI's line when the store sends none.
+    expect(r.out.match(/Nothing is charged/g)).toHaveLength(1);
     const j = await run(["buy", "fern-pack", ...h(), "--json"]);
     expect(j.json()).toMatchObject({
       totalCents: 1200,
