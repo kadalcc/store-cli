@@ -288,7 +288,7 @@ describe("search, recommend, report, notes", () => {
     const asked = await run(["recommend", "--from", project, ...h()]);
     expect(asked.code).toBe(2);
     expect(asked.err).toContain("Project: cosy-farm");
-    expect(asked.err).toContain("add --yes");
+    expect(asked.err).toContain("Nothing was sent. Add --yes");
 
     store.calls.length = 0;
     const r = await run([

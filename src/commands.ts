@@ -1,5 +1,5 @@
 import { createInterface } from "node:readline";
-import { resolve } from "node:path";
+import { relative, resolve, sep } from "node:path";
 
 import { UsageError, bool, num, str, type Parsed } from "./args.ts";
 import { clearSession, loadSession, saveSession } from "./config.ts";
@@ -119,11 +119,8 @@ const defined = (o: Record<string, unknown>) =>
   Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined));
 
 /** A yes/no on the terminal. No terminal means no one to ask: that is a usage error, not a yes. */
-async function confirm(c: Ctx, question: string, flag: string): Promise<boolean> {
-  if (!c.rt.stdin.isTTY)
-    throw new UsageError(
-      `${question.replace(/\?$/, "")}: add ${flag} to go ahead (there is no terminal to ask).`,
-    );
+async function confirm(c: Ctx, question: string, otherwise: string): Promise<boolean> {
+  if (!c.rt.stdin.isTTY) throw new UsageError(otherwise);
   const rl = createInterface({ input: c.rt.stdin, output: process.stderr });
   try {
     const answer = await new Promise<string>((done) => rl.question(`${question} [y/N] `, done));
@@ -252,7 +249,9 @@ export async function recommendCommand(c: Ctx): Promise<number> {
     c.rt.err("");
     for (const line of summary.text.split("\n")) c.rt.err(`  ${line}`);
     c.rt.err("");
-    if (c.flags.yes !== true && !(await confirm(c, "Send it?", "--yes"))) {
+    const otherwise =
+      "Nothing was sent. Add --yes to send this summary (there is no terminal to ask).";
+    if (c.flags.yes !== true && !(await confirm(c, "Send it?", otherwise))) {
       c.io.say("Nothing was sent.");
       return EXIT.ok;
     }
@@ -281,6 +280,14 @@ export async function libraryCommand(c: Ctx): Promise<number> {
   return EXIT.ok;
 }
 
+/** A path as the person would type it: relative to where they ran the command, when inside it. */
+const shown = (c: Ctx, path: string): string => {
+  const rel = relative(c.rt.cwd, path);
+  return rel && !rel.startsWith("..") && !rel.startsWith(sep) ? rel : path;
+};
+/** Per-file progress lines, with the working folder taken off the front of each path. */
+const progress = (c: Ctx) => (line: string) => c.io.say(line.split(c.rt.cwd + sep).join(""));
+
 const concurrencyOf = (c: Ctx) => intIn(c.flags.concurrency, "--concurrency", 1, 16) ?? 4;
 
 /** 4 when a file failed its checksum (the store's bytes are wrong, or something in between), 1 for any other failure. */
@@ -307,7 +314,7 @@ export async function downloadCommand(c: Ctx): Promise<number> {
   const fileNames = list(c.flags.file);
   if (zip && (fileNames || edition))
     throw new UsageError("--zip is the whole product; leave out --file and the edition flags");
-  c.io.say(`Downloading ${slug} into ${dir}`);
+  c.io.say(`Downloading ${slug} into ${shown(c, dir)}`);
   const report: ProductReport = await withStore(c, (s) =>
     fetchProduct(
       s,
@@ -320,14 +327,14 @@ export async function downloadCommand(c: Ctx): Promise<number> {
         force: c.flags.force === true,
         concurrency: concurrencyOf(c),
       },
-      { fetch: c.rt.fetch, log: c.io.say },
+      { fetch: c.rt.fetch, log: progress(c) },
     ),
   );
   if (c.io.json) c.io.emit(report);
   else
     c.io.say(
       report.zip
-        ? `Done: ${report.zip.path}`
+        ? `Done: ${shown(c, report.zip.path)}`
         : `Done: ${report.counts.downloaded} downloaded, ${report.counts.skipped} already here${report.counts.failed ? `, ${report.counts.failed} failed` : ""}.`,
     );
   return transferExit(report.files);
@@ -343,7 +350,7 @@ export async function syncCommand(c: Ctx): Promise<number> {
     const library = await s.call<Library>("list_library");
     const plan = await planSync(library, dir, { edition, only });
     c.io.say(
-      `${library.items.length} product${library.items.length === 1 ? "" : "s"} · ${plan.skip.length} file${plan.skip.length === 1 ? "" : "s"} already in ${dir} · ${plan.download.length} to download${dry ? " (dry run)" : ""}`,
+      `${library.items.length} product${library.items.length === 1 ? "" : "s"} · ${plan.skip.length} file${plan.skip.length === 1 ? "" : "s"} already in ${shown(c, dir)} · ${plan.download.length} to download${dry ? " (dry run)" : ""}`,
     );
     const skipped = plan.skip.map((p) => ({ ...p, status: "skipped" as const }));
     if (dry)
@@ -351,7 +358,7 @@ export async function syncCommand(c: Ctx): Promise<number> {
     const fetched = await transfer(
       plan.download,
       (slug, fileIds) => s.call<DownloadLinks>("get_download_links", { slug, fileIds }),
-      { concurrency: concurrencyOf(c), fetch: c.rt.fetch, log: c.io.say },
+      { concurrency: concurrencyOf(c), fetch: c.rt.fetch, log: progress(c) },
     );
     return [...skipped, ...fetched];
   });
@@ -361,7 +368,7 @@ export async function syncCommand(c: Ctx): Promise<number> {
     c.io.say(
       `Done: ${counts.downloaded} downloaded, ${counts.skipped} already here${counts.failed ? `, ${counts.failed} failed` : ""}.`,
     );
-  else for (const f of result) if (f.status === "planned") c.io.say(`  + ${f.path}`);
+  else for (const f of result) if (f.status === "planned") c.io.say(`  + ${shown(c, f.path)}`);
   return transferExit(result);
 }
 
