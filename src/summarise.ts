@@ -233,8 +233,7 @@ function tomlDeps(toml: string): string[] {
     }
   }
   const arr = /^dependencies\s*=\s*\[([\s\S]*?)\]/m.exec(toml);
-  if (arr)
-    for (const m of arr[1]!.matchAll(/"([A-Za-z0-9_.-]+)/g)) out.push(m[1]!);
+  if (arr) for (const m of arr[1]!.matchAll(/"([A-Za-z0-9_.-]+)/g)) out.push(m[1]!);
   return out;
 }
 

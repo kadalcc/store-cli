@@ -76,7 +76,7 @@ export async function planSync(
         sha256: f.sha256,
         path: join(folder, name),
       };
-      (await alreadyHave(planned.path, f, hash) ? plan.skip : plan.download).push(planned);
+      ((await alreadyHave(planned.path, f, hash)) ? plan.skip : plan.download).push(planned);
     }
   }
   return plan;
@@ -89,7 +89,14 @@ export function placeLinks(links: DownloadLink[], slug: string, dir: string): Pl
     let name = safeFileName(l.name);
     if (used.has(name.toLowerCase())) name = `${safeFileName(l.fileId)}-${name}`;
     used.add(name.toLowerCase());
-    return { slug, fileId: l.fileId, name: l.name, bytes: l.bytes, sha256: l.sha256, path: join(dir, name) };
+    return {
+      slug,
+      fileId: l.fileId,
+      name: l.name,
+      bytes: l.bytes,
+      sha256: l.sha256,
+      path: join(dir, name),
+    };
   });
 }
 

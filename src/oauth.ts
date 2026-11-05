@@ -51,7 +51,10 @@ export function pkcePair(): { verifier: string; challenge: string } {
   return { verifier, challenge: createHash("sha256").update(verifier).digest("base64url") };
 }
 
-async function getJson(url: string, fetchFn: typeof fetch): Promise<Record<string, unknown> | null> {
+async function getJson(
+  url: string,
+  fetchFn: typeof fetch,
+): Promise<Record<string, unknown> | null> {
   try {
     const res = await fetchFn(url, { headers: { accept: "application/json" } });
     if (!res.ok) return null;
@@ -132,7 +135,9 @@ async function tokenRequest(
   if (!res.ok || typeof data.access_token !== "string")
     throw new OAuthError(
       str(data.error) ?? `http_${res.status}`,
-      str(data.error_description) ?? str(data.error) ?? `The token endpoint answered ${res.status}.`,
+      str(data.error_description) ??
+        str(data.error) ??
+        `The token endpoint answered ${res.status}.`,
       res.status,
     );
   return data as unknown as TokenResponse;
@@ -227,7 +232,13 @@ async function startLoopback(lines?: AsyncIterable<string>): Promise<Loopback> {
     if (!waiter || url.searchParams.get("state") !== waiter.state) {
       res
         .writeHead(400, { "content-type": "text/html; charset=utf-8" })
-        .end(page(false, "That sign-in link is not this one", "Go back to the terminal and run kadal-store login again."));
+        .end(
+          page(
+            false,
+            "That sign-in link is not this one",
+            "Go back to the terminal and run kadal-store login again.",
+          ),
+        );
       return;
     }
     const w = waiter;
@@ -272,7 +283,11 @@ async function startLoopback(lines?: AsyncIterable<string>): Promise<Loopback> {
       new Promise<Answer>((resolve, reject) => {
         const timer = setTimeout(() => {
           waiter = null;
-          reject(new AuthError("The sign-in was not finished within 5 minutes; run `kadal-store login` again."));
+          reject(
+            new AuthError(
+              "The sign-in was not finished within 5 minutes; run `kadal-store login` again.",
+            ),
+          );
         }, timeoutMs);
         timer.unref?.();
         waiter = {
@@ -299,8 +314,7 @@ export function pastedParams(line: string): URLSearchParams | null {
   }
 }
 
-const escapeHtml = (s: string) =>
-  s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
 /** The page the browser lands on: one line of what happened and what to do next. */
 function page(ok: boolean, title: string, line: string): string {
@@ -409,8 +423,14 @@ export async function login(o: LoginOptions): Promise<Session> {
       const error = p.get("error");
       if (error) {
         if (retryAsRegistered(error)) {
-          answer.reply(false, "One more step", "The terminal is opening a new sign-in page; approve that one.");
-          log("The store did not accept the CLI's client document; registering this CLI and asking again.");
+          answer.reply(
+            false,
+            "One more step",
+            "The terminal is opening a new sign-in page; approve that one.",
+          );
+          log(
+            "The store did not accept the CLI's client document; registering this CLI and asking again.",
+          );
           kind = "registered";
           continue;
         }
@@ -424,13 +444,21 @@ export async function login(o: LoginOptions): Promise<Session> {
       // RFC 9207: an `iss` that is not our server's means the answer came from a different one.
       const iss = p.get("iss");
       if (iss && info.issuer && iss !== info.issuer) {
-        answer.reply(false, "Not signed in", "The answer came from a different server than the one asked.");
-        throw new AuthError(`Sign-in answer came from ${iss}, not ${info.issuer}; nothing was saved.`);
+        answer.reply(
+          false,
+          "Not signed in",
+          "The answer came from a different server than the one asked.",
+        );
+        throw new AuthError(
+          `Sign-in answer came from ${iss}, not ${info.issuer}; nothing was saved.`,
+        );
       }
       const code = p.get("code");
       if (!code) {
         answer.reply(false, "Not signed in", "The store sent no code back.");
-        throw new AuthError("The store sent no authorization code back; run `kadal-store login` again.");
+        throw new AuthError(
+          "The store sent no authorization code back; run `kadal-store login` again.",
+        );
       }
       let tokens: TokenResponse;
       try {
@@ -448,8 +476,14 @@ export async function login(o: LoginOptions): Promise<Session> {
         );
       } catch (e) {
         if (e instanceof OAuthError && retryAsRegistered(e.code)) {
-          answer.reply(false, "One more step", "The terminal is opening a new sign-in page; approve that one.");
-          log("The store did not accept the CLI's client document; registering this CLI and asking again.");
+          answer.reply(
+            false,
+            "One more step",
+            "The terminal is opening a new sign-in page; approve that one.",
+          );
+          log(
+            "The store did not accept the CLI's client document; registering this CLI and asking again.",
+          );
           kind = "registered";
           continue;
         }

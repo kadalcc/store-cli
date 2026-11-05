@@ -179,7 +179,8 @@ function commandFirst(argv: string[]): string[] {
   while (i < argv.length) {
     const a = argv[i]!;
     const takesValue = a === "--host" && argv[i + 1] !== undefined;
-    if (!takesValue && a !== "--json" && !a.startsWith("--host=") && !a.startsWith("--json=")) break;
+    if (!takesValue && a !== "--json" && !a.startsWith("--host=") && !a.startsWith("--json="))
+      break;
     const n = takesValue ? 2 : 1;
     lead.push(...argv.slice(i, i + n));
     i += n;

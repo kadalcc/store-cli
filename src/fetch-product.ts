@@ -50,12 +50,19 @@ export async function fetchProduct(
   const got = await store.call<DownloadLinks>("get_download_links", args);
 
   if (req.zip) {
-    if (!got.zip) throw new UsageError(`${req.slug} has no zip; download its files instead (leave out --zip).`);
+    if (!got.zip)
+      throw new UsageError(`${req.slug} has no zip; download its files instead (leave out --zip).`);
     const path = join(req.dir, `${safeFileName(req.slug)}.zip`);
     // The zip is built on request, so the store has no checksum for it; the bytes are the bytes.
     const z = await downloadTo(got.zip.url, path, {}, o.fetch);
     o.log?.(`  ✓ ${path}`);
-    return { slug: req.slug, dir: req.dir, files: [], zip: { path, bytes: z.bytes, sha256: z.sha256 }, counts: { downloaded: 1, skipped: 0, failed: 0 } };
+    return {
+      slug: req.slug,
+      dir: req.dir,
+      files: [],
+      zip: { path, bytes: z.bytes, sha256: z.sha256 },
+      counts: { downloaded: 1, skipped: 0, failed: 0 },
+    };
   }
 
   let links = got.links;
@@ -68,7 +75,9 @@ export async function fetchProduct(
       );
   }
   if (!links.length)
-    throw new UsageError(`No files to download in ${req.slug}${req.edition ? " for that edition" : ""}.`);
+    throw new UsageError(
+      `No files to download in ${req.slug}${req.edition ? " for that edition" : ""}.`,
+    );
 
   const placed = placeLinks(links, req.slug, req.dir);
   const skipped: FileOutcome[] = [];

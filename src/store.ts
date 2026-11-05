@@ -91,14 +91,30 @@ export function explain(e: unknown, host: string): Error {
   if (err.name === "StreamableHTTPError" || /Streamable HTTP/i.test(err.message)) {
     if (code === 401) return new AuthError(expiredMessage(host));
     if (code === 403)
-      return new HostError(403, "forbidden", "The store refused that with this sign-in (403). Run `kadal-store login` again to grant it.");
+      return new HostError(
+        403,
+        "forbidden",
+        "The store refused that with this sign-in (403). Run `kadal-store login` again to grant it.",
+      );
     if (code === 404)
-      return new HostError(404, "no_mcp", `${hostLabel(host)} has no MCP endpoint at /mcp; check --host.`);
+      return new HostError(
+        404,
+        "no_mcp",
+        `${hostLabel(host)} has no MCP endpoint at /mcp; check --host.`,
+      );
     if (typeof code === "number" && code >= 500)
-      return new HostError(code, `http_${code}`, `The store is having trouble (${code}); try again in a minute.`);
+      return new HostError(
+        code,
+        `http_${code}`,
+        `The store is having trouble (${code}); try again in a minute.`,
+      );
   }
   const cause = (e as { cause?: { code?: string } }).cause;
   if (err instanceof TypeError && /fetch failed/i.test(err.message))
-    return new HostError(0, "unreachable", `Could not reach ${hostLabel(host)}${cause?.code ? ` (${cause.code})` : ""}. Check your connection and --host.`);
+    return new HostError(
+      0,
+      "unreachable",
+      `Could not reach ${hostLabel(host)}${cause?.code ? ` (${cause.code})` : ""}. Check your connection and --host.`,
+    );
   return err;
 }

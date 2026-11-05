@@ -40,7 +40,13 @@ export interface WhoAmI {
 }
 
 export interface Shelves {
-  shelves: { slug: string; name: string; blurb: string | null; count: number; licenceModel: string }[];
+  shelves: {
+    slug: string;
+    name: string;
+    blurb: string | null;
+    count: number;
+    licenceModel: string;
+  }[];
 }
 
 export interface SearchResult {
@@ -148,7 +154,12 @@ export interface Note {
   statusLine: string;
   via: "web" | "agent";
   files: { id: string; url: string }[];
-  messages: { author: "person" | "kadal"; body: string | null; status: string | null; at: string }[];
+  messages: {
+    author: "person" | "kadal";
+    body: string | null;
+    status: string | null;
+    at: string;
+  }[];
   unread: boolean;
   createdAt: string;
   updatedAt: string;

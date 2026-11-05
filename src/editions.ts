@@ -21,7 +21,8 @@ export function editionFrom(flags: Record<string, unknown>): Edition | undefined
   const year = flagText(flags.year);
   if (year !== undefined) {
     const y = year.toLowerCase();
-    if (!YEAR.test(y)) throw new UsageError(`--year takes a year like 2027, or undated (got "${year}")`);
+    if (!YEAR.test(y))
+      throw new UsageError(`--year takes a year like 2027, or undated (got "${year}")`);
     out.year = y;
   }
   const week = flagText(flags.week);
@@ -29,19 +30,22 @@ export function editionFrom(flags: Record<string, unknown>): Edition | undefined
     const w = week.toLowerCase();
     if (w === "sun" || w === "sunday") out.week = "sun";
     else if (w === "mon" || w === "monday") out.week = "mon";
-    else throw new UsageError(`--week takes sun or mon, the day the week starts on (got "${week}")`);
+    else
+      throw new UsageError(`--week takes sun or mon, the day the week starts on (got "${week}")`);
   }
   const lang = flagText(flags.lang);
   if (lang !== undefined) {
     // "en+ja", "EN_JA" and "en ja" are all the bilingual edition, which the store calls en-ja.
     const l = lang.toLowerCase().replace(/[+_\s]+/g, "-");
-    if (!LANG.test(l)) throw new UsageError(`--lang takes a language like en, ja or en-ja (got "${lang}")`);
+    if (!LANG.test(l))
+      throw new UsageError(`--lang takes a language like en, ja or en-ja (got "${lang}")`);
     out.lang = l;
   }
   const size = flagText(flags.size);
   if (size !== undefined) {
     const s = size.trim().toLowerCase().replace(/\s+/g, "-");
-    if (!SIZE.test(s)) throw new UsageError(`--size takes a size like a4, a5, letter or ipad (got "${size}")`);
+    if (!SIZE.test(s))
+      throw new UsageError(`--size takes a size like a4, a5, letter or ipad (got "${size}")`);
     out.size = s;
   }
   return Object.keys(out).length ? out : undefined;
@@ -54,7 +58,10 @@ const flagText = (v: unknown): string | undefined =>
  * Whether a file belongs to the picked edition. A file with no facet on an axis (the read-me, a
  * cover sheet) belongs to every edition, as on the product page, so a pick never hides it.
  */
-export function matchesEdition(file: Edition | null | undefined, pick: Edition | undefined): boolean {
+export function matchesEdition(
+  file: Edition | null | undefined,
+  pick: Edition | undefined,
+): boolean {
   if (!pick) return true;
   for (const axis of EDITION_AXES) {
     const want = pick[axis];

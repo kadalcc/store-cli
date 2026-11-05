@@ -67,7 +67,8 @@ export interface Ctx {
 
 export const EXIT = { ok: 0, failed: 1, usage: 2, auth: 3, checksum: 4 } as const;
 
-const storeFor = (c: Ctx) => new Store(c.host, new Auth(c.host, c.rt.env, c.rt.fetch), c.rt.version);
+const storeFor = (c: Ctx) =>
+  new Store(c.host, new Auth(c.host, c.rt.env, c.rt.fetch), c.rt.version);
 
 /** Run against the store, and always close the client (its socket would keep Node alive). */
 async function withStore<T>(c: Ctx, fn: (s: Store) => Promise<T>): Promise<T> {
@@ -92,14 +93,16 @@ function centsFrom(v: unknown, flag = "--max"): number | undefined {
 function intIn(v: unknown, flag: string, min: number, max: number): number | undefined {
   const n = num(v);
   if (n === undefined) return undefined;
-  if (!Number.isInteger(n) || n < min || n > max) throw new UsageError(`${flag} takes a whole number from ${min} to ${max}`);
+  if (!Number.isInteger(n) || n < min || n > max)
+    throw new UsageError(`${flag} takes a whole number from ${min} to ${max}`);
   return n;
 }
 
 function oneOf<T extends string>(v: unknown, flag: string, allowed: readonly T[]): T | undefined {
   const s = str(v);
   if (s === undefined) return undefined;
-  if (!allowed.includes(s as T)) throw new UsageError(`${flag} takes ${allowed.join(", ")} (got "${s}")`);
+  if (!allowed.includes(s as T))
+    throw new UsageError(`${flag} takes ${allowed.join(", ")} (got "${s}")`);
   return s as T;
 }
 
@@ -118,7 +121,9 @@ const defined = (o: Record<string, unknown>) =>
 /** A yes/no on the terminal. No terminal means no one to ask: that is a usage error, not a yes. */
 async function confirm(c: Ctx, question: string, flag: string): Promise<boolean> {
   if (!c.rt.stdin.isTTY)
-    throw new UsageError(`${question.replace(/\?$/, "")}: add ${flag} to go ahead (there is no terminal to ask).`);
+    throw new UsageError(
+      `${question.replace(/\?$/, "")}: add ${flag} to go ahead (there is no terminal to ask).`,
+    );
   const rl = createInterface({ input: c.rt.stdin, output: process.stderr });
   try {
     const answer = await new Promise<string>((done) => rl.question(`${question} [y/N] `, done));
@@ -236,7 +241,9 @@ export async function recommendCommand(c: Ctx): Promise<number> {
   const words = c.args.join(" ").trim();
   const from = str(c.flags.from);
   if (!words && !from)
-    throw new UsageError('recommend needs a few words ("a cosy pixel-art farming game"), --from <dir>, or both');
+    throw new UsageError(
+      'recommend needs a few words ("a cosy pixel-art farming game"), --from <dir>, or both',
+    );
   let context = words;
   if (from) {
     const summary = await summariseProject(resolve(c.rt.cwd, from));
@@ -278,22 +285,41 @@ const concurrencyOf = (c: Ctx) => intIn(c.flags.concurrency, "--concurrency", 1,
 
 /** 4 when a file failed its checksum (the store's bytes are wrong, or something in between), 1 for any other failure. */
 const transferExit = (files: { status: string; checksum?: boolean }[]) =>
-  files.some((f) => f.checksum) ? EXIT.checksum : files.some((f) => f.status === "failed") ? EXIT.failed : EXIT.ok;
+  files.some((f) => f.checksum)
+    ? EXIT.checksum
+    : files.some((f) => f.status === "failed")
+      ? EXIT.failed
+      : EXIT.ok;
 
 export async function downloadCommand(c: Ctx): Promise<number> {
   const slug = c.args[0];
-  if (!slug) throw new UsageError("download needs a product slug: kadal-store download <slug>  (kadal-store library lists yours)");
-  if (c.args.length > 1) throw new UsageError(`download takes one product; got ${c.args.join(", ")}. For everything, use sync.`);
+  if (!slug)
+    throw new UsageError(
+      "download needs a product slug: kadal-store download <slug>  (kadal-store library lists yours)",
+    );
+  if (c.args.length > 1)
+    throw new UsageError(
+      `download takes one product; got ${c.args.join(", ")}. For everything, use sync.`,
+    );
   const dir = resolve(c.rt.cwd, str(c.flags.out) ?? slug);
   const edition = editionFrom(c.flags);
   const zip = c.flags.zip === true;
   const fileNames = list(c.flags.file);
-  if (zip && (fileNames || edition)) throw new UsageError("--zip is the whole product; leave out --file and the edition flags");
+  if (zip && (fileNames || edition))
+    throw new UsageError("--zip is the whole product; leave out --file and the edition flags");
   c.io.say(`Downloading ${slug} into ${dir}`);
   const report: ProductReport = await withStore(c, (s) =>
     fetchProduct(
       s,
-      { slug, dir, fileNames, edition, zip, force: c.flags.force === true, concurrency: concurrencyOf(c) },
+      {
+        slug,
+        dir,
+        fileNames,
+        edition,
+        zip,
+        force: c.flags.force === true,
+        concurrency: concurrencyOf(c),
+      },
       { fetch: c.rt.fetch, log: c.io.say },
     ),
   );
@@ -320,7 +346,8 @@ export async function syncCommand(c: Ctx): Promise<number> {
       `${library.items.length} product${library.items.length === 1 ? "" : "s"} · ${plan.skip.length} file${plan.skip.length === 1 ? "" : "s"} already in ${dir} · ${plan.download.length} to download${dry ? " (dry run)" : ""}`,
     );
     const skipped = plan.skip.map((p) => ({ ...p, status: "skipped" as const }));
-    if (dry) return [...skipped, ...plan.download.map((p) => ({ ...p, status: "planned" as const }))];
+    if (dry)
+      return [...skipped, ...plan.download.map((p) => ({ ...p, status: "planned" as const }))];
     const fetched = await transfer(
       plan.download,
       (slug, fileIds) => s.call<DownloadLinks>("get_download_links", { slug, fileIds }),
@@ -331,7 +358,9 @@ export async function syncCommand(c: Ctx): Promise<number> {
   const counts = countOutcomes(result);
   if (c.io.json) c.io.emit({ dir, dryRun: dry, files: result, counts });
   else if (!dry)
-    c.io.say(`Done: ${counts.downloaded} downloaded, ${counts.skipped} already here${counts.failed ? `, ${counts.failed} failed` : ""}.`);
+    c.io.say(
+      `Done: ${counts.downloaded} downloaded, ${counts.skipped} already here${counts.failed ? `, ${counts.failed} failed` : ""}.`,
+    );
   else for (const f of result) if (f.status === "planned") c.io.say(`  + ${f.path}`);
   return transferExit(result);
 }
@@ -339,20 +368,24 @@ export async function syncCommand(c: Ctx): Promise<number> {
 // ── buying, problems ───────────────────────────────────────────────────────────────────────
 
 export function buyItems(words: string[]): { slug: string; tier?: Tier }[] {
-  if (!words.length) throw new UsageError("buy needs at least one product: kadal-store buy <slug[:tier]>…");
+  if (!words.length)
+    throw new UsageError("buy needs at least one product: kadal-store buy <slug[:tier]>…");
   if (words.length > 20) throw new UsageError("buy takes at most 20 products at a time");
   return words.map((w) => {
     const [slug, tier, extra] = w.split(":");
     if (!slug || extra !== undefined) throw new UsageError(`"${w}" is not slug or slug:tier`);
     if (tier === undefined || tier === "") return { slug };
-    if (!TIERS.includes(tier as Tier)) throw new UsageError(`"${tier}" is not a tier; use ${TIERS.join(", ")}`);
+    if (!TIERS.includes(tier as Tier))
+      throw new UsageError(`"${tier}" is not a tier; use ${TIERS.join(", ")}`);
     return { slug, tier: tier as Tier };
   });
 }
 
 export async function buyCommand(c: Ctx): Promise<number> {
   const items = buyItems(c.args);
-  const r = await withStore(c, (s) => s.call<BuyLink>("create_buy_link", { items, ref: str(c.flags.ref) ?? "cli" }));
+  const r = await withStore(c, (s) =>
+    s.call<BuyLink>("create_buy_link", { items, ref: str(c.flags.ref) ?? "cli" }),
+  );
   if (c.io.json) c.io.emit(r);
   else say(c, render.buyText(r));
   if (c.flags.open === true) c.rt.open(r.url);
@@ -367,18 +400,34 @@ async function readStdin(stdin: NodeJS.ReadableStream): Promise<string> {
 
 export async function reportArgs(c: Ctx): Promise<Record<string, unknown>> {
   const [slug, ...words] = c.args;
-  if (!slug) throw new UsageError('report needs a product: kadal-store report <slug> --kind mistake "what is wrong"');
+  if (!slug)
+    throw new UsageError(
+      'report needs a product: kadal-store report <slug> --kind mistake "what is wrong"',
+    );
   const kind = oneOf(c.flags.kind, "--kind", NOTE_KINDS);
   if (!kind) throw new UsageError(`report needs --kind: ${NOTE_KINDS.join(", ")}`);
   let body = words.join(" ").trim();
   if (body === "-") body = (await readStdin(c.rt.stdin)).trim();
-  if (!body) throw new UsageError('report needs the words: what is wrong, where (or - to read them from stdin)');
-  if (body.length > 4000) throw new UsageError(`a report is at most 4000 characters (this one is ${body.length})`);
+  if (!body)
+    throw new UsageError(
+      "report needs the words: what is wrong, where (or - to read them from stdin)",
+    );
+  if (body.length > 4000)
+    throw new UsageError(`a report is at most 4000 characters (this one is ${body.length})`);
   const page = intIn(c.flags.page, "--page", 1, 100_000);
   const at = num(c.flags.at);
-  if (page !== undefined && at !== undefined) throw new UsageError("--page is for a PDF, --at for audio or video: one or the other");
-  if (at !== undefined && at < 0) throw new UsageError("--at takes seconds from the start, like 12.5");
-  return defined({ slug, fileName: str(c.flags.file), page, timeSeconds: at, kind: kind as NoteKind, body });
+  if (page !== undefined && at !== undefined)
+    throw new UsageError("--page is for a PDF, --at for audio or video: one or the other");
+  if (at !== undefined && at < 0)
+    throw new UsageError("--at takes seconds from the start, like 12.5");
+  return defined({
+    slug,
+    fileName: str(c.flags.file),
+    page,
+    timeSeconds: at,
+    kind: kind as NoteKind,
+    body,
+  });
 }
 
 export async function reportCommand(c: Ctx): Promise<number> {

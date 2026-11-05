@@ -23,8 +23,11 @@ export const PART_SUFFIX = ".kadal-part";
  */
 export function safeFileName(name: string): string {
   const base = name.split(/[\\/]/).pop() ?? "";
-  // oxlint-disable-next-line no-control-regex -- control characters are exactly what is stripped
-  const cleaned = base.replace(/[\u0000-\u001f<>:"|?*]/g, "_").replace(/^[.\s]+/, "").trim();
+  const cleaned = base
+    // oxlint-disable-next-line no-control-regex -- control characters are exactly what is stripped
+    .replace(/[\u0000-\u001f<>:"|?*]/g, "_")
+    .replace(/^[.\s]+/, "")
+    .trim();
   return cleaned.slice(0, 200) || "file";
 }
 
@@ -104,7 +107,11 @@ export async function downloadTo(
   }
   if (!res.ok || !res.body) {
     await res.body?.cancel().catch(() => {});
-    throw new HostError(res.status, `http_${res.status}`, `Downloading ${url} failed: the store answered ${res.status}.`);
+    throw new HostError(
+      res.status,
+      `http_${res.status}`,
+      `Downloading ${url} failed: the store answered ${res.status}.`,
+    );
   }
 
   // 206 continues the part; a 200 (the store ignored the Range) starts it over.
@@ -125,6 +132,13 @@ export async function downloadTo(
   );
   const sha256 = hash.digest("hex");
 
+  // Short: the connection ended early. The part is good as far as it goes; the next run resumes.
+  if (want.bytes !== undefined && bytes < want.bytes)
+    throw new HostError(
+      0,
+      "incomplete",
+      `${dest}: the download stopped at ${bytes} of ${want.bytes} bytes; run the command again to resume.`,
+    );
   if (want.sha256 && sha256 !== want.sha256.toLowerCase()) {
     // A bad part must not be resumed from, or every retry inherits its wrong bytes.
     await rm(part, { force: true });

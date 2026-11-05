@@ -18,7 +18,11 @@ import type {
  */
 
 export const money = (cents: number | null | undefined): string =>
-  cents === null || cents === undefined ? "—" : cents === 0 ? "free" : `$${(cents / 100).toFixed(2)}`;
+  cents === null || cents === undefined
+    ? "—"
+    : cents === 0
+      ? "free"
+      : `$${(cents / 100).toFixed(2)}`;
 
 const pad = (s: string, n: number) => (s.length >= n ? s : s + " ".repeat(n - s.length));
 const cut = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
@@ -41,7 +45,8 @@ export function cardLines(items: ProductCard[]): string[] {
 }
 
 export function searchText(r: SearchResult, again?: string): string[] {
-  if (!r.items.length) return ["Nothing matched. Try fewer words, or `kadal-store shelves` to browse."];
+  if (!r.items.length)
+    return ["Nothing matched. Try fewer words, or `kadal-store shelves` to browse."];
   const lines = cardLines(r.items);
   lines.push("", `${r.items.length} of ${r.total}. Details: kadal-store show <slug>`);
   if (r.nextCursor) lines.push(`More: ${again ?? "kadal-store search …"} --cursor ${r.nextCursor}`);
@@ -51,7 +56,8 @@ export function searchText(r: SearchResult, again?: string): string[] {
 export function shelvesText(r: Shelves): string[] {
   const w = Math.max(...r.shelves.map((s) => s.slug.length), 4);
   return r.shelves.map(
-    (s) => `${pad(s.slug, w)}  ${pad(s.name, 24)}  ${String(s.count).padStart(4)} products${s.blurb ? `  ${cut(s.blurb, 50)}` : ""}`,
+    (s) =>
+      `${pad(s.slug, w)}  ${pad(s.name, 24)}  ${String(s.count).padStart(4)} products${s.blurb ? `  ${cut(s.blurb, 50)}` : ""}`,
   );
 }
 
@@ -71,11 +77,14 @@ export function productText(p: ProductDetail): string[] {
     out.push("", `Files (${p.files.length}):`);
     for (const f of p.files.slice(0, 40)) {
       const ed = editionLabel(f.edition);
-      out.push(`  ${f.name}  ${formatBytes(f.bytes)}${f.minTier !== "standard" ? `  ${f.minTier}+` : ""}${ed ? `  [${ed}]` : ""}`);
+      out.push(
+        `  ${f.name}  ${formatBytes(f.bytes)}${f.minTier !== "standard" ? `  ${f.minTier}+` : ""}${ed ? `  [${ed}]` : ""}`,
+      );
     }
     if (p.files.length > 40) out.push(`  … and ${p.files.length - 40} more`);
   }
-  if (p.contents.length) out.push("", "In this pack:", ...cardLines(p.contents).map((l) => `  ${l}`));
+  if (p.contents.length)
+    out.push("", "In this pack:", ...cardLines(p.contents).map((l) => `  ${l}`));
   if (p.inPacks.length) out.push("", "Also in:", ...cardLines(p.inPacks).map((l) => `  ${l}`));
   if (p.licence.tiers.length) {
     out.push("", `Licence (${p.licence.model}):`);
@@ -88,14 +97,20 @@ export function productText(p: ProductDetail): string[] {
   if (p.updates.length) {
     out.push("", "Updates:");
     for (const u of p.updates.slice(0, 5))
-      out.push(`  ${u.at.slice(0, 10)}  ${u.summary}${u.reports ? ` · answered ${u.reports} report${u.reports === 1 ? "" : "s"}` : ""}`);
+      out.push(
+        `  ${u.at.slice(0, 10)}  ${u.summary}${u.reports ? ` · answered ${u.reports} report${u.reports === 1 ? "" : "s"}` : ""}`,
+      );
   }
-  out.push("", p.owned ? `Download: kadal-store download ${p.slug}` : `Buy: kadal-store buy ${p.slug}`);
+  out.push(
+    "",
+    p.owned ? `Download: kadal-store download ${p.slug}` : `Buy: kadal-store buy ${p.slug}`,
+  );
   return out;
 }
 
 export function recommendText(r: Recommendations): string[] {
-  if (!r.items.length && !r.packs.length) return ["Nothing fits well yet. Try a few words about what you need."];
+  if (!r.items.length && !r.packs.length)
+    return ["Nothing fits well yet. Try a few words about what you need."];
   const out: string[] = [];
   for (const p of r.items) out.push(...cardLines([p]), `    ${p.why}`);
   if (r.packs.length) {
@@ -114,7 +129,8 @@ export function libraryText(items: LibraryItem[]): string[] {
     out.push(
       `${it.product.name}  (${it.tier})  ${it.files.length} file${it.files.length === 1 ? "" : "s"}, ${formatBytes(total)}  ${it.product.slug}`,
     );
-    if (it.lastUpdate) out.push(`    updated ${it.lastUpdate.at.slice(0, 10)}: ${it.lastUpdate.summary}`);
+    if (it.lastUpdate)
+      out.push(`    updated ${it.lastUpdate.at.slice(0, 10)}: ${it.lastUpdate.summary}`);
   }
   out.push("", "Download one: kadal-store download <slug> · everything: kadal-store sync <dir>");
   return out;
@@ -123,7 +139,9 @@ export function libraryText(items: LibraryItem[]): string[] {
 export function buyText(r: BuyLink): string[] {
   const out = ["Review and pay here:", `  ${r.url}`, ""];
   for (const i of r.items)
-    out.push(`  ${pad(cut(i.name, 40), 40)}  ${pad(i.tier, 10)}  ${money(i.cents)}${i.owned ? "  (you already own this)" : ""}`);
+    out.push(
+      `  ${pad(cut(i.name, 40), 40)}  ${pad(i.tier, 10)}  ${money(i.cents)}${i.owned ? "  (you already own this)" : ""}`,
+    );
   out.push(`  ${pad("Total", 52)}  ${money(r.totalCents)}`, "");
   if (r.note) out.push(r.note);
   out.push("Nothing is charged until you pay in the checkout on that page.");
@@ -131,7 +149,10 @@ export function buyText(r: BuyLink): string[] {
 }
 
 export function notesText(notes: Note[]): string[] {
-  if (!notes.length) return ["You have no notes. Found a problem in a file? kadal-store report <slug> --kind mistake \"…\""];
+  if (!notes.length)
+    return [
+      'You have no notes. Found a problem in a file? kadal-store report <slug> --kind mistake "…"',
+    ];
   const out: string[] = [];
   for (const n of notes) {
     out.push(
