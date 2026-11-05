@@ -1,0 +1,89 @@
+name: CI
+
+# GitHub's hosted runners (free for a public repo). One job checks the source; the other runs the
+# built CLI under every Node line it supports, the way `npx -y @kadal/store` would.
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "*.md"
+      - ".changeset/*.md"
+  pull_request:
+    paths-ignore:
+      - "*.md"
+      - ".changeset/*.md"
+  # release.yml starts this on the "Version packages" branch: that PR is opened with GITHUB_TOKEN,
+  # so its pull_request run waits for a maintainer's approval; a dispatched run starts on its own.
+  workflow_dispatch:
+
+# One run per branch or PR: a newer push cancels the one in flight. main's runs all finish.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: typecheck · lint · test · build · package
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          # The one Bun every workflow here uses (release.yml too): bun.lock is written by it.
+          bun-version: 1.3.14
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      - run: bun run lint
+      - run: bun run test
+      - run: bun run build
+      # npm silently rewrites (and for `./` bin paths, drops) what it doesn't like at publish time.
+      # `npm pkg fix` applies the same normalisation; any diff means package.json would ship
+      # different from what's in the repo.
+      - name: package.json is already what npm publishes
+        run: |
+          npm install -g npm@^11.15.0
+          npm pkg fix
+          git diff --exit-code -- package.json
+      - name: The tarball holds the CLI, the skill and the licence, and nothing else
+        run: |
+          # --ignore-scripts: dist/ is built above, and prepack's build log would land in the JSON.
+          npm pack --dry-run --json --ignore-scripts > pack.json
+          node -e '
+            const files = JSON.parse(require("fs").readFileSync("pack.json", "utf8"))[0].files.map((f) => f.path);
+            const need = ["dist/bin.js", "dist/index.js", "dist/mcp.js", "skills/kadal-store/SKILL.md", "LICENSE", "README.md", "package.json"];
+            const missing = need.filter((f) => !files.includes(f));
+            const stray = files.filter((f) => /^(src|test|tools)\//.test(f));
+            if (missing.length || stray.length) { console.error({ missing, stray }); process.exit(1); }
+            console.log(files.length + " files");
+          '
+
+  node:
+    name: the built CLI on Node ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [20, 22, 24]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+      - run: node dist/bin.js --help
+      # login (playing the browser) → library → download → sync twice → buy → logout, against
+      # test/fake-store.ts.
+      - run: node tools/smoke.mjs

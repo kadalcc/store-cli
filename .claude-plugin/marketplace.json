@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "kadal-store",
+  "owner": {
+    "name": "Kadal",
+    "email": "hello@kadal.cc",
+    "url": "https://kadal.cc"
+  },
+  "metadata": {
+    "description": "The Kadal Store for AI agents: find assets for the project you are in, download what you own into it, and get a link to buy the rest."
+  },
+  "plugins": [
+    {
+      "name": "kadal-store",
+      "displayName": "Kadal Store",
+      "source": "./",
+      "description": "Use the Kadal Store (store.kadal.cc) with your own account: the kadal-store skill (finding assets for the current project, downloading into it, buy links that never charge, reporting problems in purchased files) and the kadal-store MCP server (search, recommend, library, download_to_folder, project_summary, create_buy_link, report_problem).",
+      "category": "productivity",
+      "keywords": ["assets", "store", "downloads", "planners", "sound-effects", "mcp"],
+      "homepage": "https://store.kadal.cc",
+      "repository": "https://github.com/kadalcc/store-cli",
+      "license": "AGPL-3.0-or-later",
+      "author": { "name": "Kadal", "email": "hello@kadal.cc", "url": "https://kadal.cc" },
+      "strict": false,
+      "skills": ["./skills/kadal-store"],
+      "mcpServers": {
+        "kadal-store": {
+          "command": "npx",
+          "args": ["-y", "@kadal/store@latest", "mcp"]
+        }
+      }
+    }
+  ]
+}
