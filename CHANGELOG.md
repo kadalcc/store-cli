@@ -1,5 +1,13 @@
 # @kadal/store
 
+## 0.1.1
+
+### Patch Changes
+
+- 8acd6a1: The package names itself `cc.kadal/store` (`mcpName`), so the official MCP Registry lists this local
+  server beside the hosted one at `https://store.kadal.cc/mcp`. The README links both, and the
+  step-by-step setup for each app.
+
 ## 0.1.0
 
 The first release: the Kadal Store from your terminal and your AI agent.
