@@ -55,15 +55,19 @@ export const HELP = `kadal-store <command> [options]
               --file <name>…  only those files   -o, --out <dir>  where they go
               --year 2027 --week sun|mon --lang en|ja|en-ja --size a4|a5|letter…  one edition
               --zip  the whole product as one zip   --force  download files that are already here
+              --color <hex>  a recolourable product's SVGs in that colour, e.g. 2f9e44 (quote a
+              leading #: "#2f9e44"); saved as <name>-2f9e44.svg
               --concurrency <n> (4). Every file is checked against its sha256 before it is kept;
               an interrupted download picks up where it stopped
   sync        sync [dir]  every file you own into dir (default ./kadal-store), one folder per
               product; files whose sha256 already matches are skipped, nothing is deleted
               --product <slug>…  only those   --year --week --lang --size  one edition
+              --color <hex>  the recolourable products' SVGs in that colour; the rest as drawn
               --dry-run  say what would come down   --concurrency <n> (4)
   buy         buy <slug[:tier]>…  a link to a page where you review the items and pay; nothing is
               charged until you pay in the checkout there   --open  open it in your browser
-              tiers: standard (default), personal, commercial (see the licence in show)
+              without a tier, each item comes with the cheapest licence on sale; or name one:
+              standard, personal, commercial (see the licence in show)
   report      report <slug> --kind mistake|question|idea "what is wrong"  tell Kadal about a
               problem in a product   --file <name>  --page <n> (PDF) | --at <seconds> (audio, video)
               Use - instead of the words to read them from stdin
@@ -137,12 +141,14 @@ export const COMMAND_FLAGS: Record<string, FlagSpecs> = {
     out: { kind: "string", short: "o" },
     zip: { kind: "boolean" },
     force: { kind: "boolean" },
+    color: { kind: "string" },
     concurrency: { kind: "number" },
     ...EDITION_FLAGS,
   },
   sync: {
     product: { kind: "string", multiple: true },
     "dry-run": { kind: "boolean" },
+    color: { kind: "string" },
     concurrency: { kind: "number" },
     ...EDITION_FLAGS,
   },

@@ -1,8 +1,9 @@
 import { describe, expect, test } from "bun:test";
 
 import { UsageError, parseArgs } from "../src/args.ts";
-import { buyItems, reportArgs, searchArgs } from "../src/commands.ts";
-import { COMMAND_FLAGS, commandHelp } from "../src/index.ts";
+import { buyItems, reportArgs, searchAgain, searchArgs } from "../src/commands.ts";
+import { hexColor } from "../src/fetch-product.ts";
+import { COMMAND_FLAGS, HELP, commandHelp } from "../src/index.ts";
 import { cli, tempDir } from "./helpers.ts";
 
 const parse = (command: string, argv: string[]) =>
@@ -29,6 +30,30 @@ describe("flags", () => {
       maxCents: 499,
       limit: 10,
     });
+  });
+
+  test("search: the command for the next page sends the same search", () => {
+    const { flags, positionals } = parse("search", [
+      "kid's",
+      "planner",
+      "--shelf",
+      "printables",
+      "--max",
+      "4.99",
+      "--sort",
+      "price",
+    ]);
+    expect(searchAgain(searchArgs({ flags, args: positionals }), "http://localhost:8861")).toBe(
+      "kadal-store search 'kid'\\''s' planner --shelf printables --sort price --max 4.99 --host http://localhost:8861",
+    );
+    expect(searchAgain({})).toBe("kadal-store search");
+  });
+
+  test("--color: hex as the store reads it, or nothing", () => {
+    expect(hexColor("2F9E44")).toBe("#2f9e44");
+    expect(hexColor("#2f9")).toBe("#22ff99");
+    expect(hexColor(" #2f9e44 ")).toBe("#2f9e44");
+    for (const bad of ["green", "#2f9e4", "2f9e44ff", "#", ""]) expect(hexColor(bad)).toBeNull();
   });
 
   test("search: bad values are usage errors, not requests the store refuses", () => {
@@ -144,6 +169,10 @@ describe("main", () => {
     expect(help.out).toContain("--concurrency");
     expect(help.out).not.toContain("recommend [words");
     expect(commandHelp("buy")).toContain("nothing is");
+    // Without a tier the store's quote() takes the cheapest price on sale, whatever its name.
+    expect(commandHelp("buy")).toContain("the cheapest licence on sale");
+    expect(HELP).not.toContain("standard (default)");
+    expect(commandHelp("sync")).toContain("--color <hex>");
     expect((await run(["--version", "--json"])).json()).toEqual({ version: expect.any(String) });
   });
 

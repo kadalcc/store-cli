@@ -175,6 +175,12 @@ Done: 0 downloaded, 83 already here.
 - `sync [dir]` mirrors everything you own into `dir` (default `./kadal-store`), one folder per
   product. Files already there with the same sha256 are skipped; nothing is ever deleted.
   `--product <slug>` (repeatable), the edition flags, and `--dry-run` to see what would come down.
+- Recolourable illustrations (`show <slug>` says "Recolourable") come in any colour:
+  `--color <hex>` on `download` or `sync`, such as `--color 2f9e44`, saves each SVG in that colour
+  as `<name>-2f9e44.svg`, and the rest of the product as it is. Leave out the `#` or quote it
+  (`"#2f9e44"`): a bare `#` starts a comment in the shell. Each recoloured file is checked against
+  the store's sha256 for it, so the next run skips it too. `sync --color` recolours the products
+  that can be and brings the rest as drawn; a product that can't take a colour is refused (exit 2).
 - Every file is checked against the sha256 the store gives before it is kept. A download that is
   cut off leaves a `.kadal-part` file, and the next run picks up where it stopped. Downloads run
   four at a time (`--concurrency <n>`).
@@ -197,12 +203,12 @@ Review and pay here:
   Soft UI Sounds                            personal    $9.00  (you already own this)
   Total                                                 $9.00
 
-Open the link to review and pay. Nothing is charged until the person pays in Paddle's checkout, and they can change a licence or remove anything there. Already owned, so not charged: soft-ui-sounds.
+Open the link to review and pay. Nothing is charged until you pay on that page, and you can change a licence or remove anything there. Already owned, so not charged: soft-ui-sounds.
 ```
 
 `buy <slug[:tier]>…` makes a page where you see each item, its licence and its price, and anything
 you already own, which is left out of the total. Without a tier, an item comes with the cheapest
-licence it is sold under; add one (`personal`, `standard` or `commercial`) to choose. `--open`
+licence on sale for it; add one (`personal`, `standard` or `commercial`) to choose. `--open`
 opens the page in your browser. Making that page is all `buy` does: you pay there, or not at all.
 
 <p align="center">
@@ -321,12 +327,12 @@ its own, and report problems it finds in files you bought.
 | MCP tools | |
 | --- | --- |
 | `search_products`, `get_product`, `list_shelves`, `recommend` | the catalogue, the licence of each product, suggestions from a description of the work |
-| `list_library`, `get_download_links` | what you own, and ten-minute download links with each file's sha256 |
+| `list_library`, `get_download_links` | what you own, and ten-minute download links with each file's sha256 (a recolourable illustration's SVGs in the `color` you give) |
 | `create_buy_link` | a review page for you to pay on; it charges nothing |
 | `report_problem`, `list_my_notes` | a note about a file you own, and Kadal's replies |
 | `whoami` | who is signed in, with which scopes |
 | `project_summary` (local) | what `recommend --from` sends: the folder described without its contents |
-| `download_to_folder` (local) | files you own into the project, checked by sha256, skipping what is there; only inside the folder the server started in unless it was started with `--allow-outside` |
+| `download_to_folder` (local) | files you own into the project, checked by sha256, skipping what is there, in a `color` for recolourable illustrations; only inside the folder the server started in unless it was started with `--allow-outside` |
 
 `kadal-store mcp --dir <path>` serves another folder as the project. Every tool needs the
 `store:read` scope except `report_problem`, which needs `store:write`. The store's
