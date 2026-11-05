@@ -1,0 +1,96 @@
+<!doctype html>
+<!--
+  GitHub's social preview for kadalcc/store-cli: 1280×640, rendered by render.mjs at 2x and scaled
+  to ../social.jpg. Text sizes follow the legibility rule scaled to 1280 px: headline ≥ 71 px,
+  everything else ≥ 52 px. The pictures are the store's own previews of real products.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Kadal Store CLI social preview</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400..800&family=JetBrains+Mono:wght@500&display=block"
+      rel="stylesheet"
+    />
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+      }
+      body {
+        width: 1280px;
+        height: 640px;
+        overflow: hidden;
+        display: grid;
+        grid-template-columns: 1fr 432px;
+        gap: 48px;
+        align-items: center;
+        padding: 0 64px;
+        background:
+          radial-gradient(800px 500px at 0% 0%, rgba(45, 212, 191, 0.22), transparent 70%),
+          radial-gradient(800px 600px at 100% 100%, rgba(56, 189, 248, 0.18), transparent 70%),
+          #07121d;
+        color: #e8f1f8;
+        font-family: Inter, system-ui, sans-serif;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        font: 600 52px/1 Inter, sans-serif;
+        color: #c4d3df;
+      }
+      .brand img {
+        width: 72px;
+        height: 72px;
+      }
+      h1 {
+        margin-top: 30px;
+        font: 800 84px/1.02 Inter, sans-serif;
+        letter-spacing: -0.035em;
+        background: linear-gradient(90deg, #5eead4, #7dd3fc 55%, #a5b4fc);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+      p {
+        margin-top: 22px;
+        font: 500 52px/1.18 Inter, sans-serif;
+        letter-spacing: -0.015em;
+      }
+      code {
+        display: inline-block;
+        margin-top: 34px;
+        font: 500 52px/1 "JetBrains Mono", monospace;
+        color: #5eead4;
+      }
+      .tiles {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+      }
+      .tiles img {
+        width: 100%;
+        aspect-ratio: 1;
+        object-fit: cover;
+        border-radius: 22px;
+        border: 2px solid rgba(238, 247, 252, 0.14);
+      }
+    </style>
+  </head>
+  <body>
+    <div>
+      <div class="brand"><img src="https://store.kadal.cc/favicon.svg" alt="" />Kadal Store</div>
+      <h1>Store CLI</h1>
+      <p>Your library, in your terminal and your AI agent.</p>
+      <code>npx @kadal/store</code>
+    </div>
+    <div class="tiles">
+      <img src="https://store.kadal.cc/media/med_8c5f6356330841df93d2abb342e653fe" alt="" />
+      <img src="https://store.kadal.cc/media/med_a0fda1d72ccb47f79c37ac5a7c707412" alt="" />
+      <img src="https://store.kadal.cc/media/med_742d75b9c1fe4edca950b65aaaebb102" alt="" />
+      <img src="https://store.kadal.cc/media/med_13298bbd183b4dbdaf8984eff43f5e8e" alt="" />
+    </div>
+  </body>
+</html>
