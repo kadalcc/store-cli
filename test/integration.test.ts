@@ -277,6 +277,19 @@ describe("search, recommend, report, notes", () => {
     expect(t.out).toContain("Buy: kadal-store buy fern-pack");
   });
 
+  test("search: the More: line is the same search, one page on", async () => {
+    const first = await run(["search", "--format", "png", "--limit", "1", ...h()]);
+    expect(first.out).toContain("Fern textures pack");
+    expect(first.out).toContain("1 of 2.");
+    const more = /^More: kadal-store (.+)$/m.exec(first.out)![1]!;
+    expect(more).toBe(`search --format png --limit 1 --host ${store.url} --cursor 1`);
+    // Run as printed: the next PNG, not page two of everything.
+    const next = await run(more.split(" "));
+    expect(next.out).toContain("Desk scenes");
+    expect(next.out).not.toMatch(/Retro UI|Techo/);
+    expect(next.out).not.toContain("More:");
+  });
+
   test("recommend --from: the summary is shown on stderr, sent only with --yes", async () => {
     const project = join(work, "game");
     mkdirSync(project, { recursive: true });
@@ -340,6 +353,141 @@ describe("search, recommend, report, notes", () => {
     expect(n.out).toContain(
       "Techo weekly planner 2027 · mistake · techo-weekly_2027_mon_en_a5.pdf  [Open]  note_1",
     );
+  });
+});
+
+describe("--color: recolourable illustrations", () => {
+  const scenes = () => store.products.find((p) => p.slug === "desk-scenes")!;
+  const drawn = () => new TextDecoder().decode(fileBytes("f_hero"));
+  beforeAll(() => {
+    scenes().owned = "standard";
+  });
+  afterAll(() => {
+    scenes().owned = null;
+  });
+
+  test("download: the SVGs in that colour, checked against the store's sha256 for them", async () => {
+    const dir = join(work, "brand");
+    const r = await run([
+      "download",
+      "desk-scenes",
+      "--color",
+      "2F9E44",
+      "-o",
+      dir,
+      ...h(),
+      "--json",
+    ]);
+    expect(r.code).toBe(0);
+    expect(store.calls).toContain("links:desk-scenes:*:#2f9e44");
+    expect(readdirSync(dir).sort()).toEqual(["hero-2f9e44.svg", "hero.png"]);
+    const svg = readFileSync(join(dir, "hero-2f9e44.svg"), "utf8");
+    expect(svg).toBe(drawn().replace("#5b4ce6", "#2f9e44"));
+    expect(readFileSync(join(dir, "hero.png"))).toEqual(Buffer.from(fileBytes("f_hero_png")));
+    const files = r.json<{ files: { name: string; sha256: string }[] }>().files;
+    expect(files.find((f) => f.name === "hero-2f9e44.svg")!.sha256).toBe(sha(svg));
+
+    // Again: the recoloured file on disk matches, so nothing comes down.
+    store.calls.length = 0;
+    const again = await run([
+      "download",
+      "desk-scenes",
+      "--color",
+      "#2f9e44",
+      "-o",
+      dir,
+      ...h(),
+      "--json",
+    ]);
+    expect(again.json<{ counts: Record<string, number> }>().counts).toMatchObject({
+      downloaded: 0,
+      skipped: 2,
+    });
+    expect(store.calls.filter((c) => c.startsWith("dl:"))).toEqual([]);
+  });
+
+  test("download: --file takes the file's own name, and a renewed link keeps the colour", async () => {
+    const dir = join(work, "brand-one");
+    store.expireOnce.add("f_hero");
+    const r = await run([
+      "download",
+      "desk-scenes",
+      "--color",
+      "f76707",
+      "--file",
+      "hero.svg",
+      "-o",
+      dir,
+      ...h(),
+    ]);
+    expect(r.code).toBe(0);
+    expect(store.calls).toContain("links:desk-scenes:f_hero:#f76707");
+    expect(readFileSync(join(dir, "hero-f76707.svg"), "utf8")).toBe(
+      drawn().replace("#5b4ce6", "#f76707"),
+    );
+  });
+
+  test("download --zip in a colour is named for it", async () => {
+    const r = await run([
+      "download",
+      "desk-scenes",
+      "--zip",
+      "--color",
+      "2f9e44",
+      "-o",
+      "zips",
+      ...h(),
+      "--json",
+    ]);
+    expect(r.json<{ zip: { path: string } }>().zip.path).toBe(
+      join(work, "zips", "desk-scenes-2f9e44.zip"),
+    );
+  });
+
+  test("refused: not a colour (before asking the store), or a product that can't take one", async () => {
+    store.calls.length = 0;
+    const bad = await run(["download", "desk-scenes", "--color", "green", ...h()]);
+    expect(bad.code).toBe(2);
+    expect(bad.err).toContain('--color takes a hex colour, like 2f9e44 or "#2f9e44" (got "green")');
+    expect(store.calls).toEqual([]);
+    const plain = await run(["download", "retro-ui-sfx", "--color", "2f9e44", ...h()]);
+    expect(plain.code).toBe(2);
+    expect(plain.err).toContain(
+      "Retro UI sound effects comes in its own colours and can't be recoloured; leave the colour out.",
+    );
+    const named = await run([
+      "sync",
+      join(work, "x"),
+      "--product",
+      "retro-ui-sfx",
+      "--color",
+      "2f9e44",
+      ...h(),
+    ]);
+    expect(named.code).toBe(2);
+    expect(named.err).toContain("Retro UI sound effects comes in its own colours");
+  });
+
+  test("sync: the recolourable products in the colour, the rest as drawn; then all skipped", async () => {
+    const dir = join(work, "mirror-brand");
+    const first = await run(["sync", dir, "--color", "2f9e44", ...h()]);
+    expect(first.code).toBe(0);
+    expect(first.out).toContain("3 products (1 in #2f9e44) · 0 files already in");
+    expect(readdirSync(join(dir, "desk-scenes")).sort()).toEqual(["hero-2f9e44.svg", "hero.png"]);
+    expect(readdirSync(join(dir, "retro-ui-sfx")).sort()).toEqual(["beep.wav", "click.wav"]);
+    store.calls.length = 0;
+    const second = await run(["sync", dir, "--color", "2f9e44", ...h(), "--json"]);
+    expect(second.json<{ counts: Record<string, number> }>().counts).toEqual({
+      downloaded: 0,
+      skipped: 7,
+      failed: 0,
+    });
+    expect(store.calls.filter((c) => c.startsWith("dl:"))).toEqual([]);
+  });
+
+  test("show says a product is recolourable", async () => {
+    const t = await run(["show", "desk-scenes", ...h()]);
+    expect(t.out).toContain("Recolourable: its SVGs are drawn in #5b4ce6");
   });
 });
 
@@ -417,6 +565,38 @@ describe("kadal-store mcp", () => {
     })) as { isError: boolean; content: { text: string }[] };
     expect(out.isError).toBe(true);
     expect(out.content[0]!.text).toContain("outside the project");
+  });
+
+  test("download_to_folder and get_download_links take a colour", async () => {
+    const scenes = store.products.find((p) => p.slug === "desk-scenes")!;
+    scenes.owned = "standard";
+    try {
+      const r = (await client.callTool({
+        name: "download_to_folder",
+        arguments: { slug: "desk-scenes", dir: "art", color: "#2f9e44" },
+      })) as { isError?: boolean; content: { text: string }[] };
+      expect(r.isError).toBeUndefined();
+      expect(readdirSync(join(project, "art")).sort()).toEqual(["hero-2f9e44.svg", "hero.png"]);
+      const links = (await client.callTool({
+        name: "get_download_links",
+        arguments: { slug: "desk-scenes", color: "2f9e44" },
+      })) as { structuredContent: { links: { name: string }[] } };
+      expect(links.structuredContent.links.map((l) => l.name)).toContain("hero-2f9e44.svg");
+      const bad = (await client.callTool({
+        name: "download_to_folder",
+        arguments: { slug: "desk-scenes", color: "teal" },
+      })) as { isError: boolean; content: { text: string }[] };
+      expect(bad.isError).toBe(true);
+      expect(bad.content[0]!.text).toBe(`“teal” isn't a colour. Send it as hex, e.g. "#2f9e44".`);
+      const plain = (await client.callTool({
+        name: "download_to_folder",
+        arguments: { slug: "retro-ui-sfx", color: "#2f9e44" },
+      })) as { isError: boolean; content: { text: string }[] };
+      expect(plain.isError).toBe(true);
+      expect(plain.content[0]!.text).toContain("comes in its own colours and can't be recoloured");
+    } finally {
+      scenes.owned = null;
+    }
   });
 
   test("project_summary", async () => {

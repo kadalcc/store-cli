@@ -83,6 +83,11 @@ export function productText(p: ProductDetail): string[] {
     }
     if (p.files.length > 40) out.push(`  … and ${p.files.length - 40} more`);
   }
+  if (p.recolor)
+    out.push(
+      "",
+      `Recolourable: its SVGs are drawn in ${p.recolor.base}; download or sync with --color <hex> for your own.`,
+    );
   if (p.contents.length)
     out.push("", "In this pack:", ...cardLines(p.contents).map((l) => `  ${l}`));
   if (p.inPacks.length) out.push("", "Also in:", ...cardLines(p.inPacks).map((l) => `  ${l}`));

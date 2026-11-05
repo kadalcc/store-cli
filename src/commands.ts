@@ -4,7 +4,13 @@ import { relative, resolve, sep } from "node:path";
 import { UsageError, bool, num, str, type Parsed } from "./args.ts";
 import { clearSession, loadSession, saveSession } from "./config.ts";
 import { editionFrom } from "./editions.ts";
-import { type ProductReport, countOutcomes, fetchProduct } from "./fetch-product.ts";
+import {
+  type ProductReport,
+  countOutcomes,
+  fetchProduct,
+  hexColor,
+  notRecolourable,
+} from "./fetch-product.ts";
 import { AuthError, hostLabel, signedOut } from "./host.ts";
 import { DEFAULT_SCOPE, login, revokeSession } from "./oauth.ts";
 import * as render from "./render.ts";
@@ -14,6 +20,7 @@ import { CONTEXT_LIMIT, clip, summariseProject } from "./summarise.ts";
 import { planSync, transfer } from "./transfer.ts";
 import {
   type BuyLink,
+  type DownloadLink,
   type DownloadLinks,
   type Library,
   type MyNotes,
@@ -218,11 +225,33 @@ export function searchArgs(c: Pick<Ctx, "flags" | "args">): Record<string, unkno
   });
 }
 
+/** A word as a shell takes it back: bare when it is safe, else in single quotes. */
+const shellWord = (w: string) =>
+  /^[\w@%+=:,./-]+$/.test(w) ? w : `'${w.replaceAll("'", "'\\''")}'`;
+
+/**
+ * searchArgs read backwards: the command that sends the same search again, so the `More:` line
+ * pages through what was asked for. The store's cursor is an offset into whatever list the call
+ * names; with the filters left off, the same cursor is a page of a different list.
+ */
+export function searchAgain(args: Record<string, unknown>, host?: string): string {
+  const words = String(args.query ?? "")
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(shellWord);
+  const flags = (["shelf", "style", "topic", "format", "kind", "sort", "limit"] as const)
+    .filter((k) => args[k] !== undefined)
+    .flatMap((k) => [`--${k}`, shellWord(String(args[k]))]);
+  if (args.maxCents !== undefined) flags.push("--max", String(Number(args.maxCents) / 100));
+  if (host) flags.push("--host", shellWord(host));
+  return ["kadal-store search", ...words, ...flags].join(" ");
+}
+
 export async function searchCommand(c: Ctx): Promise<number> {
   const args = searchArgs(c);
   const r = await withStore(c, (s) => s.call<SearchResult>("search_products", args));
   if (c.io.json) c.io.emit(r);
-  else say(c, render.searchText(r, `kadal-store search ${c.args.join(" ")}`.trim()));
+  else say(c, render.searchText(r, searchAgain(args, str(c.flags.host))));
   return EXIT.ok;
 }
 
@@ -292,6 +321,16 @@ const progress = (c: Ctx) => (line: string) => c.io.say(line.split(c.rt.cwd + se
 
 const concurrencyOf = (c: Ctx) => intIn(c.flags.concurrency, "--concurrency", 1, 16) ?? 4;
 
+/** `--color 2f9e44` as "#2f9e44". An unquoted `#2f9e44` never arrives: the shell reads a comment. */
+function colorOf(c: Ctx): string | undefined {
+  const raw = str(c.flags.color);
+  if (raw === undefined) return undefined;
+  const hex = hexColor(raw);
+  if (!hex)
+    throw new UsageError(`--color takes a hex colour, like 2f9e44 or "#2f9e44" (got "${raw}")`);
+  return hex;
+}
+
 /** 4 when a file failed its checksum (the store's bytes are wrong, or something in between), 1 for any other failure. */
 const transferExit = (files: { status: string; checksum?: boolean }[]) =>
   files.some((f) => f.checksum)
@@ -316,6 +355,7 @@ export async function downloadCommand(c: Ctx): Promise<number> {
   const fileNames = list(c.flags.file);
   if (zip && (fileNames || edition))
     throw new UsageError("--zip is the whole product; leave out --file and the edition flags");
+  const color = colorOf(c);
   c.io.say(`Downloading ${slug} into ${shown(c, dir)}`);
   const report: ProductReport = await withStore(c, (s) =>
     fetchProduct(
@@ -328,6 +368,7 @@ export async function downloadCommand(c: Ctx): Promise<number> {
         zip,
         force: c.flags.force === true,
         concurrency: concurrencyOf(c),
+        color,
       },
       { fetch: c.rt.fetch, log: progress(c) },
     ),
@@ -348,19 +389,50 @@ export async function syncCommand(c: Ctx): Promise<number> {
   const edition = editionFrom(c.flags);
   const only = list(c.flags.product);
   const dry = c.flags["dry-run"] === true;
+  const color = colorOf(c);
   const result = await withStore(c, async (s) => {
     const library = await s.call<Library>("list_library");
-    const plan = await planSync(library, dir, { edition, only });
+    // The colour goes to the recolourable products and the rest come as drawn; one named with
+    // --product that can't take it is refused. Their links are asked for now, because only the
+    // store knows a recoloured file's sha256, and that is what says it is already here.
+    const tinted = new Map<string, DownloadLink[]>();
+    if (color) {
+      const picked = library.items.filter((i) => !only?.length || only.includes(i.product.slug));
+      const plain = only?.length ? picked.find((i) => !i.recolor) : undefined;
+      if (plain) throw new UsageError(notRecolourable(plain.product.name));
+      for (const i of picked.filter((i) => i.recolor)) {
+        const slug = i.product.slug;
+        tinted.set(
+          slug,
+          (await s.call<DownloadLinks>("get_download_links", { slug, color })).links,
+        );
+      }
+      if (!tinted.size)
+        throw new UsageError(
+          "Nothing you own is recolourable (the Illustrations shelf), so --color has nothing to change.",
+        );
+    }
+    const plan = await planSync(library, dir, { edition, only, links: tinted });
     c.io.say(
-      `${library.items.length} product${library.items.length === 1 ? "" : "s"} · ${plan.skip.length} file${plan.skip.length === 1 ? "" : "s"} already in ${shown(c, dir)} · ${plan.download.length} to download${dry ? " (dry run)" : ""}`,
+      `${library.items.length} product${library.items.length === 1 ? "" : "s"}${color ? ` (${tinted.size} in ${color})` : ""} · ${plan.skip.length} file${plan.skip.length === 1 ? "" : "s"} already in ${shown(c, dir)} · ${plan.download.length} to download${dry ? " (dry run)" : ""}`,
     );
     const skipped = plan.skip.map((p) => ({ ...p, status: "skipped" as const }));
     if (dry)
       return [...skipped, ...plan.download.map((p) => ({ ...p, status: "planned" as const }))];
     const fetched = await transfer(
       plan.download,
-      (slug, fileIds) => s.call<DownloadLinks>("get_download_links", { slug, fileIds }),
-      { concurrency: concurrencyOf(c), fetch: c.rt.fetch, log: progress(c) },
+      (slug, fileIds) =>
+        s.call<DownloadLinks>("get_download_links", {
+          slug,
+          fileIds,
+          ...(tinted.has(slug) ? { color } : {}),
+        }),
+      {
+        concurrency: concurrencyOf(c),
+        fetch: c.rt.fetch,
+        log: progress(c),
+        links: new Map([...tinted.values()].flat().map((l) => [l.fileId, l])),
+      },
     );
     return [...skipped, ...fetched];
   });

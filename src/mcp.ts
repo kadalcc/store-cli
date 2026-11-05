@@ -25,7 +25,7 @@ import { z } from "zod";
 
 import { loadSession } from "./config.ts";
 import { safeFileName } from "./download.ts";
-import { fetchProduct } from "./fetch-product.ts";
+import { fetchProduct, hexColor } from "./fetch-product.ts";
 import { AuthError, hostLabel } from "./host.ts";
 import { Auth } from "./session.ts";
 import { Store } from "./store.ts";
@@ -55,6 +55,11 @@ const edition = z
   })
   .describe(
     "Narrow a product sold in editions (planners, calendars) to one. Leave an axis out to keep all of it.",
+  );
+const color = z
+  .string()
+  .describe(
+    'Recolourable products only (get_product\'s recolor is not null; the Illustrations shelf): the accent colour their SVGs come in, as hex, e.g. "#2f9e44" (the brand colour of the project). Leave it out for the files as drawn.',
   );
 
 const SIGNED_OUT_HINT =
@@ -211,7 +216,7 @@ export function createServer(o: McpOptions): {
     {
       title: "What the person owns",
       description:
-        "Every product the person owns: the product card, their tier, its files (id, name, bytes, sha256, edition), whether a zip is available, and the latest update. File ids go to download_to_folder or get_download_links.",
+        "Every product the person owns: the product card, their tier, its files (id, name, bytes, sha256, edition), whether a zip is available, whether it is recolourable (recolor: the colour it is drawn in and the one they last chose), and the latest update. File ids go to download_to_folder or get_download_links.",
       inputSchema: {},
       annotations: READ,
     },
@@ -223,7 +228,7 @@ export function createServer(o: McpOptions): {
     {
       title: "Download links",
       description:
-        "Download URLs for files the person owns, each with its name, size and sha256, valid for 10 minutes; no cookie needed (curl -L works). Narrow with fileIds or an edition; zip: true adds one link for the whole product. To put files into the project, download_to_folder does the download and the checksum for you.",
+        "Download URLs for files the person owns, each with its name, size and sha256, valid for 10 minutes; no cookie needed (curl -L works). Narrow with fileIds or an edition; zip: true adds one link for the whole product; color recolours a recolourable product's SVGs (their names become <name>-<rrggbb>.svg and their sha256 is the recoloured file's). To put files into the project, download_to_folder does the download and the checksum for you.",
       inputSchema: {
         slug: z.string(),
         fileIds: z
@@ -232,6 +237,7 @@ export function createServer(o: McpOptions): {
           .describe("Only these files (ids from list_library)."),
         edition: edition.optional(),
         zip: z.boolean().optional().describe("Also a link to the whole product as one zip."),
+        color: color.optional(),
       },
       annotations: READ,
     },
@@ -252,7 +258,7 @@ export function createServer(o: McpOptions): {
               tier: tier
                 .optional()
                 .describe(
-                  "standard (default), personal or commercial: see the licence in get_product.",
+                  "Leave it out for the cheapest licence on sale, or name standard, personal or commercial: see the licence in get_product.",
                 ),
             }),
           )
@@ -353,7 +359,7 @@ export function createServer(o: McpOptions): {
     {
       title: "Download into the project",
       description:
-        "Download files the person owns into the project, each checked against its sha256; files already there with the same checksum are skipped. dir is relative to the project (default kadal-store/<slug>). Narrow with fileNames or fileIds (from list_library) or an edition, or zip: true for the whole product as one zip. Returns where every file went.",
+        "Download files the person owns into the project, each checked against its sha256; files already there with the same checksum are skipped. dir is relative to the project (default kadal-store/<slug>). Narrow with fileNames or fileIds (from list_library) or an edition, or zip: true for the whole product as one zip. color puts a recolourable product's SVGs in that colour (saved as <name>-<rrggbb>.svg). Returns where every file went.",
       inputSchema: {
         slug: z.string(),
         dir: z
@@ -366,6 +372,7 @@ export function createServer(o: McpOptions): {
         fileIds: z.array(z.string()).optional().describe("Only these files, by id."),
         edition: edition.optional(),
         zip: z.boolean().optional().describe("The whole product as one zip instead of its files."),
+        color: color.optional(),
         overwrite: z
           .boolean()
           .optional()
@@ -385,10 +392,13 @@ export function createServer(o: McpOptions): {
       fileIds?: string[];
       edition?: Record<string, string>;
       zip?: boolean;
+      color?: string;
       overwrite?: boolean;
     }) => {
       const target = place(a.dir, `kadal-store/${safeFileName(a.slug)}`);
       if (typeof target !== "string") return target;
+      const hex = a.color === undefined ? undefined : hexColor(a.color);
+      if (hex === null) return fail(`“${a.color}” isn't a colour. Send it as hex, e.g. "#2f9e44".`);
       try {
         const r = await fetchProduct(
           store,
@@ -400,6 +410,7 @@ export function createServer(o: McpOptions): {
             edition: a.edition,
             zip: a.zip,
             force: a.overwrite,
+            color: hex,
           },
           { fetch: o.fetch, log: (line) => console.error(line) },
         );

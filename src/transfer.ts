@@ -50,10 +50,13 @@ export async function planSync(
   {
     edition,
     only,
+    links,
     hash = sha256File,
   }: {
     edition?: Edition;
     only?: string[];
+    /** Links already asked for, per product slug: theirs are the names and sha256s that count. */
+    links?: Map<string, DownloadLink[]>;
     hash?: (path: string) => Promise<string | null>;
   } = {},
 ): Promise<SyncPlan> {
@@ -63,20 +66,23 @@ export async function planSync(
     if (only?.length && !only.includes(slug)) continue;
     const folder = join(dir, safeFileName(slug));
     const used = new Set<string>();
+    const linked = new Map(links?.get(slug)?.map((l) => [l.fileId, l]));
     for (const f of item.files) {
       if (!matchesEdition(f.edition, edition)) continue;
-      let name = safeFileName(f.name);
+      // A recoloured SVG arrives as hero-2f9e44.svg with the recoloured file's sha256.
+      const got = linked.get(f.id) ?? f;
+      let name = safeFileName(got.name);
       if (used.has(name.toLowerCase())) name = `${safeFileName(f.id)}-${name}`;
       used.add(name.toLowerCase());
       const planned: Planned = {
         slug,
         fileId: f.id,
-        name: f.name,
-        bytes: f.bytes,
-        sha256: f.sha256,
+        name: got.name,
+        bytes: got.bytes,
+        sha256: got.sha256,
         path: join(folder, name),
       };
-      ((await alreadyHave(planned.path, f, hash)) ? plan.skip : plan.download).push(planned);
+      ((await alreadyHave(planned.path, got, hash)) ? plan.skip : plan.download).push(planned);
     }
   }
   return plan;

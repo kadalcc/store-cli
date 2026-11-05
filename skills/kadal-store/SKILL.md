@@ -49,6 +49,11 @@ browser to approve. Never try to sign in, enter credentials, or approve anything
   it if it repeats.
 - `kadal-store sync <dir>` mirrors everything they own, one folder per product. Use it only when
   asked; it can be large.
+- Recolourable illustrations (`recolor` is not null in `show --json` and `library --json`) come in
+  any colour: `--color 2f9e44` on `download` or `sync` (MCP `download_to_folder` with `color`)
+  saves their SVGs in it as `<name>-2f9e44.svg`. Use the project's brand colour when it has one.
+  Write the hex without `#`, or quote it: an unquoted `#` starts a shell comment. A product that
+  isn't recolourable refuses a colour (exit 2).
 - Mind the licence when you move files into a project that will be published or sold.
 
 ## Buying: never on your own
@@ -58,7 +63,8 @@ browser to approve. Never try to sign in, enter credentials, or approve anything
   `kadal-store buy <slug>[:tier] … --json` (MCP `create_buy_link`), and give them the URL. It
   shows each item, its licence and price, and anything they already own. Nothing is charged until
   they pay in the checkout on that page themselves.
-- Tiers: `standard` (default), `personal`, `commercial`. Pick the one the licence says the use
+- Tiers: `standard`, `personal`, `commercial`. Without one, each item comes with the cheapest
+  licence on sale for it, which may not cover the use: pick the one the licence says the use
   needs, and say why.
 
 ## Report problems in files they bought

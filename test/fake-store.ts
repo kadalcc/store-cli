@@ -53,9 +53,26 @@ interface FakeProduct {
   tags: { style: string[]; topic: string[]; format: string[] };
   owned: "standard" | "personal" | "commercial" | null;
   files: FakeFile[];
+  /** Recolourable: the colour its SVGs are drawn in (docs/recolor.md's base). */
+  recolor?: string;
 }
 
 const bytesOf = (text: string, n = 1): Uint8Array => new TextEncoder().encode(text.repeat(n));
+
+/** The store's parseHex (src/recolor.ts): "#ABC", "abc", "#aabbcc" → "#aabbcc"; else null. */
+const parseHex = (raw: string) => {
+  const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(raw.trim());
+  const h = m?.[1]?.toLowerCase();
+  return h ? `#${h.length === 3 ? [...h].map((c) => c + c).join("") : h}` : null;
+};
+/**
+ * A stand-in for the store's recolorBytes: the base placeholder becomes the colour. Like the real
+ * one it keeps the length, and only the bytes (so the sha256) change.
+ */
+const recolor = (bytes: Uint8Array, base: string, color: string) =>
+  new TextEncoder().encode(new TextDecoder().decode(bytes).replaceAll(base, color));
+const coloredName = (name: string, hex: string) => name.replace(/(\.svg)$/i, `-${hex.slice(1)}$1`);
+const isSvg = (name: string) => name.toLowerCase().endsWith(".svg");
 
 export function fixtures(): FakeProduct[] {
   return [
@@ -106,6 +123,28 @@ export function fixtures(): FakeProduct[] {
       owned: null,
       files: [],
     },
+    {
+      slug: "desk-scenes",
+      name: "Desk scenes",
+      kind: "asset",
+      shelf: { slug: "illustrations", name: "Illustrations" },
+      cents: 1500,
+      tags: { style: ["flat"], topic: ["work"], format: ["png", "svg"] },
+      // Not owned until a test buys it, so the library and sync tests above stay as they are.
+      owned: null,
+      recolor: "#5b4ce6",
+      files: [
+        {
+          id: "f_hero",
+          name: "hero.svg",
+          bytes: bytesOf(
+            '<svg viewBox="0 0 8 8"><rect fill="#5b4ce6"/><rect fill="#333"/></svg>\n',
+          ),
+          edition: null,
+        },
+        { id: "f_hero_png", name: "hero.png", bytes: bytesOf("PNG hero ", 40), edition: null },
+      ],
+    },
   ];
 }
 
@@ -150,7 +189,7 @@ export function startFakeStore(opts: FakeOptions = {}): FakeStore {
   >();
   const access = new Map<string, { exp: number; scope: string }>();
   const refresh = new Map<string, { clientId: string; scope: string }>();
-  const dl = new Map<string, { fileId?: string; slug?: string; exp: number }>();
+  const dl = new Map<string, { fileId?: string; slug?: string; color?: string; exp: number }>();
   let origin = "";
   let n = 0;
 
@@ -215,6 +254,8 @@ export function startFakeStore(opts: FakeOptions = {}): FakeStore {
       {
         query: z.string().optional(),
         shelf: z.string().optional(),
+        format: z.string().optional(),
+        kind: z.string().optional(),
         maxCents: z.number().optional(),
         limit: z.number().optional(),
         cursor: z.string().optional(),
@@ -232,9 +273,19 @@ export function startFakeStore(opts: FakeOptions = {}): FakeStore {
                     .includes(w),
                 )) &&
             (!a.shelf || p.shelf.slug === a.shelf) &&
+            (!a.format || p.tags.format.includes(String(a.format))) &&
+            (!a.kind || p.kind === a.kind) &&
             (a.maxCents === undefined || p.cents <= Number(a.maxCents)),
         );
-        return json({ items: hits.map(card), nextCursor: null, total: hits.length });
+        // Pages like the store's: the cursor is an offset into the same filtered list.
+        const from = Number(a.cursor ?? 0);
+        const limit = Number(a.limit ?? 20);
+        const next = from + limit < hits.length ? String(from + limit) : null;
+        return json({
+          items: hits.slice(from, from + limit).map(card),
+          nextCursor: next,
+          total: hits.length,
+        });
       },
     );
     tool("get_product", { slug: z.string() }, (a) => {
@@ -260,6 +311,7 @@ export function startFakeStore(opts: FakeOptions = {}): FakeStore {
             ],
           },
           updates: [],
+          recolor: p.recolor ? { base: p.recolor } : null,
         },
       });
     });
@@ -295,6 +347,7 @@ export function startFakeStore(opts: FakeOptions = {}): FakeStore {
               edition: f.edition,
             })),
             zipAvailable: true,
+            recolor: p.recolor ? { base: p.recolor, color: p.recolor } : null,
             updatedAt: "2026-11-01T00:00:00.000Z",
             lastUpdate: null,
           })),
@@ -314,12 +367,22 @@ export function startFakeStore(opts: FakeOptions = {}): FakeStore {
           })
           .optional(),
         zip: z.boolean().optional(),
+        color: z.string().optional(),
       },
       (a) => {
         const p = find(String(a.slug));
+        // The store's refusals (src/mcp/tools.ts downloadLinks), word for word.
+        let color = a.color === undefined ? null : parseHex(String(a.color));
+        if (a.color !== undefined && !color)
+          return toolError(`“${a.color}” isn't a colour. Send six hex digits, e.g. #2f9e44.`);
+        if (color && !p?.recolor)
+          return toolError(
+            `${p?.name ?? a.slug} comes in its own colours only; leave color out. get_product's recolor says which products take one.`,
+          );
         if (!p?.owned) return toolError(`You don't own ${a.slug}.`);
+        if (color === p.recolor) color = null;
         calls.push(
-          `links:${p.slug}:${(a.fileIds as string[] | undefined)?.join(",") ?? "*"}${a.edition ? `:${JSON.stringify(a.edition)}` : ""}`,
+          `links:${p.slug}:${(a.fileIds as string[] | undefined)?.join(",") ?? "*"}${a.edition ? `:${JSON.stringify(a.edition)}` : ""}${color ? `:${color}` : ""}`,
         );
         const ed = a.edition as Record<string, string> | undefined;
         const ids = a.fileIds as string[] | undefined;
@@ -334,12 +397,13 @@ export function startFakeStore(opts: FakeOptions = {}): FakeStore {
         const exp = Date.now() + 600_000;
         const links = files.map((f) => {
           const t = b64url(randomBytes(9));
-          dl.set(t, { fileId: f.id, exp });
+          const tint = color && isSvg(f.name) ? color : undefined;
+          dl.set(t, { fileId: f.id, exp, color: tint });
           return {
             fileId: f.id,
-            name: f.name,
+            name: tint ? coloredName(f.name, tint) : f.name,
             bytes: f.bytes.length,
-            sha256: sha(f.bytes),
+            sha256: sha(tint ? recolor(f.bytes, p.recolor!, tint) : f.bytes),
             url: `${origin}/dl/${t}`,
             expiresAt: new Date(exp).toISOString(),
           };
@@ -347,7 +411,7 @@ export function startFakeStore(opts: FakeOptions = {}): FakeStore {
         let zip = null;
         if (a.zip) {
           const t = b64url(randomBytes(9));
-          dl.set(t, { slug: p.slug, exp });
+          dl.set(t, { slug: p.slug, exp, color: color ?? undefined });
           zip = { url: `${origin}/dl/${t}`, expiresAt: new Date(exp).toISOString() };
         }
         return json({ links, zip });
@@ -613,9 +677,11 @@ export function startFakeStore(opts: FakeOptions = {}): FakeStore {
         calls.push(`dl:zip:${t.slug}`);
         return new Response(bytesOf(`PK zip of ${t.slug} `, 100));
       }
-      const file = products.flatMap((p) => p.files).find((f) => f.id === t.fileId)!;
+      const product = products.find((p) => p.files.some((f) => f.id === t.fileId))!;
+      const file = product.files.find((f) => f.id === t.fileId)!;
       if (expireOnce.delete(file.id)) return new Response("expired", { status: 403 });
-      let body = corrupt.has(file.id) ? bytesOf("x", file.bytes.length) : file.bytes;
+      const bytes = t.color ? recolor(file.bytes, product.recolor!, t.color) : file.bytes;
+      let body = corrupt.has(file.id) ? bytesOf("x", bytes.length) : bytes;
       const range = /^bytes=(\d+)-$/.exec(req.headers.get("range") ?? "");
       calls.push(`dl:${file.id}${range ? `@${range[1]}` : ""}`);
       if (cutOnce.delete(file.id)) {

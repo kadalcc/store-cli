@@ -77,6 +77,8 @@ export interface ProductDetail extends ProductCard {
   inPacks: ProductCard[];
   licence: { model: string; tiers: LicenceTier[] };
   updates: { summary: string; at: string; reports: number }[];
+  /** Recolourable: its SVGs come in any colour (get_download_links' `color`); base is as drawn. */
+  recolor: { base: string } | null;
 }
 
 export interface Recommendations {
@@ -97,6 +99,8 @@ export interface LibraryItem {
   tier: Tier;
   files: LibraryFile[];
   zipAvailable: boolean;
+  /** Recolourable: the colour it is drawn in, and the one the person last chose in their library. */
+  recolor: { base: string; color: string } | null;
   updatedAt: string;
   lastUpdate: { summary: string; at: string } | null;
 }
