@@ -40,7 +40,8 @@ You sign in on the store's own page, so your password never passes through the C
 saved in `~/.config/kadal/store.json` (`$XDG_CONFIG_HOME` is respected; `%APPDATA%\kadal\` on
 Windows), readable only by you, and renews itself. On a machine without a browser, use
 `--no-open`, open the address anywhere, and paste the address the browser lands on back into the
-terminal. `kadal-store logout` signs this machine out and revokes its access; so does removing
+terminal. If the store's page says it does not know this app, run `kadal-store login --register`.
+`kadal-store logout` signs this machine out and revokes its access; so does removing
 "Kadal Store CLI" under **Account → Settings → Connected apps**.
 
 ## Commands
@@ -158,7 +159,8 @@ your library and the next `download` or `sync` gets it.
   (shapes in [the contract](#the-contract)). `download` prints
   `{slug, dir, files: [{fileId, name, path, bytes, sha256, status, resumed?, error?}], zip, counts}`,
   `sync` prints `{dir, dryRun, files, counts}`, `login` prints `{ok, host, user, scopes, operator,
-  config}`, `logout` prints `{ok, host, signedOut, revoked}`. Errors are
+  config}`, `logout` prints `{ok, host, signedOut, revoked}`, and a `recommend --from` you
+  declined prints `{sent: false}`. Errors are
   `{ok: false, error: {code, message, exitCode}}`.
 - Exit codes: `0` ok, `1` failed (the message says why), `2` usage, `3` not signed in (or the
   sign-in expired: run `kadal-store login`), `4` a download failed its checksum (nothing was kept).

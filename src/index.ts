@@ -36,6 +36,8 @@ export const HELP = `kadal-store <command> [options]
   login       sign in to the store in your browser; the token is saved on this machine only
               --no-open  print the sign-in address instead of opening a browser
               --scope "<scopes>"  (default "store:read store:write"; the operator adds store:ops)
+              --register  sign in as a newly registered app, if the store's page says it does not
+              know this CLI
   logout      sign this machine out and revoke its access
   whoami      who this machine is signed in as, and what it may do
   shelves     the store's shelves, with how many products each holds
@@ -104,7 +106,7 @@ const EDITION_FLAGS: FlagSpecs = {
 };
 
 export const COMMAND_FLAGS: Record<string, FlagSpecs> = {
-  login: { scope: { kind: "string" }, open: { kind: "boolean" } },
+  login: { scope: { kind: "string" }, open: { kind: "boolean" }, register: { kind: "boolean" } },
   logout: {},
   whoami: {},
   shelves: {},

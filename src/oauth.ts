@@ -209,7 +209,7 @@ export async function registerClient(
 interface Answer {
   params: URLSearchParams;
   /** Finish the browser's page; a no-op for a pasted URL, which has no page waiting. */
-  reply: (ok: boolean, title: string, line: string) => void;
+  reply: (ok: boolean, title: string, line: string) => Promise<void>;
 }
 
 interface Loopback {
@@ -245,13 +245,18 @@ async function startLoopback(lines?: AsyncIterable<string>): Promise<Loopback> {
     waiter = null;
     w.resolve({
       params: url.searchParams,
+      // Resolves once the page has gone out, so closing the listener cannot cut it short.
       reply: (ok, title, line) =>
-        res
-          .writeHead(ok ? 200 : 400, {
-            "content-type": "text/html; charset=utf-8",
-            "cache-control": "no-store",
-          })
-          .end(page(ok, title, line)),
+        new Promise<void>((done) => {
+          res.on("close", done);
+          res
+            .writeHead(ok ? 200 : 400, {
+              "content-type": "text/html; charset=utf-8",
+              "cache-control": "no-store",
+              connection: "close",
+            })
+            .end(page(ok, title, line), done);
+        }),
     });
   });
   await new Promise<void>((resolve, reject) => {
@@ -270,7 +275,7 @@ async function startLoopback(lines?: AsyncIterable<string>): Promise<Loopback> {
         if (!params || !waiter || params.get("state") !== waiter.state) continue;
         const w = waiter;
         waiter = null;
-        w.resolve({ params, reply: () => {} });
+        w.resolve({ params, reply: async () => {} });
       }
     })().catch(() => {});
   return {
@@ -423,7 +428,7 @@ export async function login(o: LoginOptions): Promise<Session> {
       const error = p.get("error");
       if (error) {
         if (retryAsRegistered(error)) {
-          answer.reply(
+          await answer.reply(
             false,
             "One more step",
             "The terminal is opening a new sign-in page; approve that one.",
@@ -438,13 +443,13 @@ export async function login(o: LoginOptions): Promise<Session> {
           error === "access_denied"
             ? "You declined in the browser, so nothing was saved."
             : `The store said: ${p.get("error_description") ?? error}`;
-        answer.reply(false, "Not signed in", why);
+        await answer.reply(false, "Not signed in", why);
         throw new AuthError(`Sign-in did not finish. ${why}`);
       }
       // RFC 9207: an `iss` that is not our server's means the answer came from a different one.
       const iss = p.get("iss");
       if (iss && info.issuer && iss !== info.issuer) {
-        answer.reply(
+        await answer.reply(
           false,
           "Not signed in",
           "The answer came from a different server than the one asked.",
@@ -455,7 +460,7 @@ export async function login(o: LoginOptions): Promise<Session> {
       }
       const code = p.get("code");
       if (!code) {
-        answer.reply(false, "Not signed in", "The store sent no code back.");
+        await answer.reply(false, "Not signed in", "The store sent no code back.");
         throw new AuthError(
           "The store sent no authorization code back; run `kadal-store login` again.",
         );
@@ -476,7 +481,7 @@ export async function login(o: LoginOptions): Promise<Session> {
         );
       } catch (e) {
         if (e instanceof OAuthError && retryAsRegistered(e.code)) {
-          answer.reply(
+          await answer.reply(
             false,
             "One more step",
             "The terminal is opening a new sign-in page; approve that one.",
@@ -487,10 +492,14 @@ export async function login(o: LoginOptions): Promise<Session> {
           kind = "registered";
           continue;
         }
-        answer.reply(false, "Not signed in", e instanceof Error ? e.message : String(e));
+        await answer.reply(false, "Not signed in", e instanceof Error ? e.message : String(e));
         throw e instanceof OAuthError ? new AuthError(`Sign-in failed: ${e.message}`) : e;
       }
-      answer.reply(true, "You're signed in", "You can close this tab and go back to the terminal.");
+      await answer.reply(
+        true,
+        "You're signed in",
+        "You can close this tab and go back to the terminal.",
+      );
       return sessionFrom(info, { id: clientId, kind }, tokens, scope);
     }
   } finally {

@@ -144,6 +144,7 @@ export async function loginCommand(c: Ctx): Promise<number> {
       open: c.flags.open === false ? null : c.rt.open,
       log: c.io.say,
       lines: rl ?? undefined,
+      client: c.flags.register === true ? "registered" : "auto",
       version: c.rt.version,
     });
   } finally {
@@ -252,7 +253,8 @@ export async function recommendCommand(c: Ctx): Promise<number> {
     const otherwise =
       "Nothing was sent. Add --yes to send this summary (there is no terminal to ask).";
     if (c.flags.yes !== true && !(await confirm(c, "Send it?", otherwise))) {
-      c.io.say("Nothing was sent.");
+      if (c.io.json) c.io.emit({ sent: false });
+      else c.io.say("Nothing was sent.");
       return EXIT.ok;
     }
     context = [words, summary.text].filter(Boolean).join("\n\n");

@@ -24,6 +24,7 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 
 import { loadSession } from "./config.ts";
+import { safeFileName } from "./download.ts";
 import { fetchProduct } from "./fetch-product.ts";
 import { AuthError, hostLabel } from "./host.ts";
 import { Auth } from "./session.ts";
@@ -386,7 +387,7 @@ export function createServer(o: McpOptions): {
       zip?: boolean;
       overwrite?: boolean;
     }) => {
-      const target = place(a.dir, `kadal-store/${a.slug}`);
+      const target = place(a.dir, `kadal-store/${safeFileName(a.slug)}`);
       if (typeof target !== "string") return target;
       try {
         const r = await fetchProduct(
