@@ -194,6 +194,16 @@ For Claude Desktop, Cursor, VS Code and others, point the client at `npx -y @kad
 claude mcp add --transport http kadal-store https://store.kadal.cc/mcp
 ```
 
+In Claude (web and desktop), ChatGPT, Cursor and VS Code, add `https://store.kadal.cc/mcp` as a
+custom connector; the store's own page opens to sign in. Step-by-step for each app:
+[store.kadal.cc/agents](https://store.kadal.cc/agents/).
+
+Both servers are one entry in the official MCP Registry, `cc.kadal/store` (the hosted one, and this
+package as its local version).
+
+[![Kadal Store MCP connector – tool definition quality and endpoint health on Glama](https://glama.ai/mcp/connectors/cc.kadal/store/badges/score.svg)](https://glama.ai/mcp/connectors/cc.kadal/store)
+[![kadalcc/store-cli MCP server](https://glama.ai/mcp/servers/kadalcc/store-cli/badges/score.svg)](https://glama.ai/mcp/servers/kadalcc/store-cli)
+
 **The skill alone**, for any agent that reads Agent Skills: `npx skills add kadalcc/store-cli`
 ([skills/kadal-store](skills/kadal-store/SKILL.md)). It teaches the agent to find assets for the
 project in front of it, download into it, never buy on its own, and report problems it finds in
