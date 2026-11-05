@@ -14,6 +14,7 @@ bun run test         # bun test: unit tests and the end-to-end run against test/
 bun run lint         # oxlint
 node tools/smoke.mjs # the built CLI under Node against the fake store: login → download → buy
 bun test/fake-store.ts 8899   # a fake store to try commands against (--host http://127.0.0.1:8899)
+node tools/third-party-notices.mjs   # THIRD_PARTY_NOTICES.md, after any dependency change
 ```
 
 ## Map
@@ -30,6 +31,7 @@ bun test/fake-store.ts 8899   # a fake store to try commands against (--host htt
 | `src/mcp.ts` | `kadal-store mcp`: the store's tools proxied, plus `project_summary` and `download_to_folder` |
 | `skills/kadal-store` | the Agent Skill |
 | `.claude-plugin/marketplace.json` | makes this repo a Claude Code plugin marketplace (the skill + the MCP server) |
+| `.github/assets` | the README's pictures; `src/` holds what makes them (`render.mjs`, the HTML, the diagram's scene) |
 
 ## Rules
 
@@ -47,3 +49,6 @@ bun test/fake-store.ts 8899   # a fake store to try commands against (--host htt
 - `package.json` must survive `npm pkg fix` unchanged (CI checks it; npm 11 drops `bin` paths that
   start with `./`).
 - Every user-facing change gets a changeset (`bun run changeset`).
+- README.md is also the npm page: link and embed with absolute URLs (images from
+  `raw.githubusercontent.com/kadalcc/store-cli/main/.github/assets/`), and keep its examples real
+  output of the CLI.
