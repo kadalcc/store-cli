@@ -82,7 +82,9 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
       - run: bun install --frozen-lockfile
-      - run: bun run build
+      # Built under Bun's runtime: tsdown loads tsdown.config.ts natively there, while Node 20 can't
+      # import TypeScript without an extra loader. Only the built CLI has to run on this job's Node.
+      - run: bun --bun run build
       - run: node dist/bin.js --help
       # login (playing the browser) → library → download → sync twice → buy → logout, against
       # test/fake-store.ts.
