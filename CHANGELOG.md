@@ -1,5 +1,11 @@
 # @kadal/store
 
+## 0.1.3
+
+### Patch Changes
+
+- 1b54805: The npm page links to Kadal's contact page and office in Chennai, India.
+
 ## 0.1.2
 
 ### Patch Changes

@@ -1,6 +1,6 @@
 {
   "name": "@kadal/store",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "The Kadal Store from your terminal and your AI agent: search the shop, get recommendations for the project you are in, download and sync what you own, and get a buy link to review. A CLI and a local MCP server.",
   "mcpName": "cc.kadal/store",
   "keywords": [
