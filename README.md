@@ -474,5 +474,5 @@ Companies can sponsor
 <!-- /sponsors -->
 
 <p align="center">
-  <sub>Made in Chennai by <a href="https://kadal.cc">Kadal</a> · <a href="https://store.kadal.cc">store.kadal.cc</a> · <a href="mailto:hello@kadal.cc">hello@kadal.cc</a></sub>
+  <sub>Made in Chennai, India by <a href="https://kadal.cc">Kadal</a> · <a href="https://store.kadal.cc">store.kadal.cc</a> · <a href="mailto:hello@kadal.cc">hello@kadal.cc</a> · <a href="https://work.kadal.cc/contact/">Contact and office</a></sub>
 </p>
